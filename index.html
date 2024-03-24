@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Image and Perform OCR</title>
+</head>
+<body>
+    <h1>Upload Image and Perform OCR</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label for="image">Choose an image:</label>
+        <input type="file" id="image" name="image" accept="image/*">
+        <select name="type" id="type">
+            <option value="id">ID</option>
+            <option value="passport">Passport</option>
+        </select>
+        <button type="submit">Upload</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        // Function to display OCR result and verification result in a table
+        function displayResults(ocrResult, verificationResult) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <h2>OCR Result</h2>
+                ${ocrResult}
+                <h2>Verification Result</h2>
+                <p>${verificationResult}</p>
+            `;
+        }
+        
+        // Submit form and handle response
+        document.querySelector('form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Extract OCR and verification results from response
+                const { ocrResult, verificationResult } = data;
+                // Display results in HTML
+                displayResults(ocrResult, verificationResult);
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
