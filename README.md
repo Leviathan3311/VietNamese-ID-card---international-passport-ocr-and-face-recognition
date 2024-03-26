@@ -1,5 +1,5 @@
 ## VietName ID card and Passport OCR 
-This project has been built completely as a basic app by Nodejs. Having 2 models about ocr, one is for VietNam ID card (main.py), the other is for passport (passport_ocr_mrz.py).
+This project has been built completely as a basic app by Nodejs. Having 2 models about ocr, one is for VietNam ID card (main.py), the other is for passport (passport_ocr_code.py).
 ## To use
 Clone this repository then download all the requirements 
 Run server.js and click the link http://localhost:3000.
