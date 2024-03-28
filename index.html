@@ -4,49 +4,253 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Image and Perform OCR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #uploadForm {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        #loading {
+            text-align: center;
+        }
+
+        #progressBar {
+            width: 300px;
+            height: 20px;
+            border-radius: 10px;
+            background-color: #f3f3f3;
+            overflow: hidden;
+        }
+
+        #progressBar::-webkit-progress-bar {
+            background-color: #f3f3f3;
+        }
+
+        #progressBar::-webkit-progress-value {
+            background-color: #4CAF50;
+            animation: progress-bar 2s infinite linear;
+        }
+
+        @keyframes progress-bar {
+            0% {
+                background-color: #4CAF50;
+            }
+            50% {
+                background-color: #2E8B57;
+            }
+            100% {
+                background-color: #4CAF50;
+            }
+        }
+
+        #progress {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        #type {
+            align-self: flex-start;
+            margin-left: 10px;
+        }
+
+        #name {
+            margin: 10px;
+        }
+
+        #idFields, #passportFields {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #idFields > div, #passportFields > div {
+            margin: 10px;
+        }
+
+        .hidden {
+            visibility: hidden;
+        }
+
+        #uploadButton {
+            margin-top: 30px;
+        }
+    </style>
 </head>
 <body>
     <h1>Upload Image and Perform OCR</h1>
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-        <label for="image">Choose an image:</label>
-        <input type="file" id="image" name="image" accept="image/*">
-        <select name="type" id="type">
-            <option value="id">ID</option>
-            <option value="passport">Passport</option>
+    <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
+        <select id="type" name="type" onchange="toggleUploadFields()">
+            <option value="ID">ID</option>
+            <option value="PASSPORT">Passport</option>
         </select>
-        <button type="submit">Upload</button>
+        <div id='name'>
+            <label for="fullname">Họ và Tên:</label>
+            <input type="text" id="fullname" name="fullname">
+        </div>
+        <div id="idFields"> 
+            <div>
+                <label for="front">Front ID_Image:</label>
+                <input type="file" id="front" name="front" accept="image/*">
+            </div>
+            <div>
+                <label for="back">Back ID_Image:</label>
+                <input type="file" id="back" name="back" accept="image/*">
+            </div>
+            <div>
+                <label for="avatar">Avatar Image:</label>
+                <input type="file" id="avatar" name="avatar" accept="image/*">
+            </div>
+        </div>
+        <div id="passportFields" class="hidden">
+            <div>
+                <label for="passport">Passport Image:</label>
+                <input type="file" id="passport" name="passport" accept="image/*">
+            </div>
+            <div>
+                <label for="passportAvatar">Avatar Image:</label>
+                <input type="file" id="passportAvatar" name="avatar" accept="image/*">
+            </div>
+        </div>
+        <button id="uploadButton" type="submit">Upload</button>
     </form>
+    <div id="loading" style="display: none;">
+        <p>Loading... <span id="progress">0%</span></p>
+        <progress id="progressBar" value="0" max="100"></progress>
+    </div>
     <div id="result"></div>
 
     <script>
+        function toggleUploadFields() {
+            var type = document.getElementById('type').value;
+            var idFields = document.getElementById('idFields');
+            var passportFields = document.getElementById('passportFields');
+
+            if (type === 'ID') {
+                idFields.classList.remove('hidden');
+                passportFields.classList.add('hidden');
+            } else if (type === 'PASSPORT') {
+                idFields.classList.add('hidden');
+                passportFields.classList.remove('hidden');
+            }
+        }
+
         // Function to display OCR result and verification result in a table
-        function displayResults(ocrResult, verificationResult) {
+        function displayResults(inputImage, avatarImage, ocrResult, verificationResult, ocrType) {
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = `
                 <h2>OCR Result</h2>
                 ${ocrResult}
+                <h2>${ocrType} Image</h2>
+                <img src="${inputImage}" alt="OCR Image" style="max-width: 500px"/>
+                <h2>Avatar Image</h2>
+                <img src="${avatarImage}" alt="Avatar Image" style="max-width: 500px"/>
                 <h2>Verification Result</h2>
                 <p>${verificationResult}</p>
             `;
+            document.getElementById('loading').style.display = 'none'; // Hide loading when results are displayed
         }
-        
-        // Submit form and handle response
-        document.querySelector('form').addEventListener('submit', function(event) {
+
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
             event.preventDefault();
-            const formData = new FormData(this);
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Extract OCR and verification results from response
-                const { ocrResult, verificationResult } = data;
-                // Display results in HTML
-                displayResults(ocrResult, verificationResult);
-            })
-            .catch(error => console.error('Error:', error));
+            const formData = new FormData();
+            const type = document.getElementById('type').value;
+            const fullname = document.getElementById('fullname').value;
+
+            // Add text fields to FormData
+            formData.append('type', type);
+            formData.append('fullname', fullname);
+
+            // Add file fields to FormData
+            if (type === 'ID') {
+                formData.append('front', document.getElementById('front').files[0]);
+                formData.append('back', document.getElementById('back').files[0]);
+                formData.append('avatar', document.getElementById('avatar').files[0]);
+            } else if (type === 'PASSPORT') {
+                formData.append('passport', document.getElementById('passport').files[0]);
+                formData.append('passportAvatar', document.getElementById('passportAvatar').files[0]);
+            }
+
+            const progressBar = document.getElementById('progressBar');
+            const progressValue = document.getElementById('progress');
+            document.getElementById('loading').style.display = 'block'; // Show loading while waiting for response
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload');
+
+            // Update progress bar during upload
+            xhr.upload.onprogress = function(event) {
+                const progress = Math.round((event.loaded / event.total) * 100);
+                progressBar.value = progress;
+                progressValue.textContent = `${progress}%`;
+            };
+
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const data = JSON.parse(xhr.responseText);
+                    // Extract images and OCR and verification results from response
+                    const { inputImage, avatarImage, ocrResult, verificationResult, ocrType } = data;
+                    // Display results in HTML
+                    displayResults(inputImage, avatarImage, ocrResult, verificationResult, ocrType);
+                } else {
+                    console.error('Request failed with status:', xhr.status);
+                }
+                document.getElementById('loading').style.display = 'none'; // Hide loading when process is complete (success or failure)
+            };
+
+            xhr.onerror = function() {
+                console.error('Request failed');
+                document.getElementById('loading').style.display = 'none'; // Hide loading when process is complete (success or failure)
+            };
+
+            xhr.send(formData);
         });
+
+
+
+            // Connect to WebSocket server
+        const socket = new WebSocket('ws://localhost:3000');
+
+        socket.onopen = function(event) {
+            console.log('WebSocket connection opened');
+        };
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'progress') {
+                const progressBar = document.getElementById('progressBar');
+                const progressValue = document.getElementById('progress');
+                progressBar.value = data.data;
+                progressValue.textContent = `${data.data}%`;
+            }
+        };
+
+        socket.onclose = function(event) {
+            console.log('WebSocket connection closed');
+        };
     </script>
 </body>
 </html>
