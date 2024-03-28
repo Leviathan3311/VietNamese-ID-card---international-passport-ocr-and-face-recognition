@@ -1,6 +1,5 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-
 import json
 import sys
 from ultralytics import YOLO
@@ -10,6 +9,10 @@ import cv2
 from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
 import logging
+import keras
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+keras.utils.disable_interactive_logging()
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -37,7 +40,7 @@ def ocr(crop_img):
     return text
 
 
-def detect_and_crop_faces(image_path, output_dir, padding=40):
+def detect_and_crop_faces(image_path, output_dir, file_name, padding=40):
     image = cv2.imread(image_path)
     detector = MTCNN()
     faces = detector.detect_faces(image)
@@ -56,8 +59,7 @@ def detect_and_crop_faces(image_path, output_dir, padding=40):
 
         cropped_face = image[y:y + height, x:x + width]
 
-        file_name = os.path.basename(image_path)
-        output_path = os.path.join(output_dir, file_name)
+        output_path = os.path.join(output_dir, file_name + '.jpg')
 
         cv2.imwrite(output_path, cropped_face)
 
@@ -66,7 +68,7 @@ def get_text(img_path):
     img = Image.open(img_path)
     results = model.predict(source=img_path)
     dic = {'id': [], 'full_name': [], 'birth': [], 'gender': [], 'nationality': [], 'place_of_origin': [],
-           'place_of_residences': [], 'date_of_expiry': []}
+           'place_of_residences': [], 'date_of_expiry': [], 'issue_date': [], 'issue_place': []}
 
     for box in results[0].boxes:
         if int(box.cls[0]) in names_index:
@@ -74,7 +76,7 @@ def get_text(img_path):
             dic[name].append(box.xyxy[0].cpu().numpy().astype(int))
 
     res = {'id': '', 'full_name': '', 'birth': '', 'gender': '', 'nationality': '', 'place_of_origin': '',
-           'place_of_residences': '', 'date_of_expiry': ''}
+           'place_of_residences': '', 'date_of_expiry': '', 'issue_date': '', 'issue_place': ''}
 
     for key in dic:
         tmp = ''
@@ -93,17 +95,15 @@ def get_text(img_path):
     return res
 
 
-def save_json(data_list, output_dir, filename):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def save_json(data, output_dir, filename):
     json_file_path = os.path.join(output_dir, filename + '.json')
-    with open(json_file_path, 'w', encoding='utf-8') as json_file:
-        json.dump(data_list, json_file, indent=4, ensure_ascii=False)
+    with open(json_file_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
 
 
 
-def get_info(img_path, output_dir='cropped_faces'):
-    detect_and_crop_faces(img_path, output_dir)
+def get_info(img_path, output_dir):
+    detect_and_crop_faces(img_path, output_dir, 'image')
     res = get_text(img_path)
 
     return res
@@ -111,20 +111,37 @@ def get_info(img_path, output_dir='cropped_faces'):
 
 
 
-def main(image_path):
-    if not os.path.isfile(image_path):
-        print("Error: Image path does not exist.")
-        exit()
-
+def main(image_path, file_name):
     logging.debug(f"Received image path: {image_path}")
+    result = []
+    folder_link = os.path.join('extracted_info', file_name)
+    new_output_dir = folder_link
+    i = 2
+    while os.path.exists(new_output_dir):
+        if i == 2:
+            new_output_dir = f"{folder_link}_{i}" 
+        else:
+            new_output_dir = f"{new_output_dir[:-2]}_{i}"  # Lấy phần tên trước "_" và thêm số tiếp theo         
+        i +=1
+    os.makedirs(new_output_dir)
+    if os.path.isdir(image_path):
+            for filename in os.listdir(image_path):
+                # Kiểm tra xem tệp có phải là một ảnh hay không
+                if filename.endswith((".jpg", "png", ".JPEG")):
+                    # Đường dẫn đầy đủ đến tệp ảnh
+                    path = os.path.join(image_path, filename)
+                    # Lưu kết quả
+                    result.append(get_info(path, new_output_dir))
+    else:
+        print('không bắt được file')
+        
+    # Gộp các phần tử và loại bỏ các giá trị rỗng
+    combined_data = {}
+    for item in result:
+        filtered_item = {key: value for key, value in item.items() if value.strip() != ''}
+        combined_data.update(filtered_item)
+    save_json(combined_data, new_output_dir, 'info')
 
-    result = get_info(image_path)
-
-    file_name = os.path.splitext(os.path.basename(image_path))[0]
-    save_json(result, 'extracted_info', file_name)
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python image_processing.py <image_path>")
-        exit()
-    main(sys.argv[1])
+    main('/Users/leviathanvo/Documents/cccd_passport_ocr_api/Thư mục mới với các mục', 'Bằng')
