@@ -309,7 +309,6 @@ def main(image_path, file_name):
                     save_json(result, new_output_dir, 'info')
     else:
         print('không bắt được file')
-    save_json(result, folder_link, 'info')
 
 
 
