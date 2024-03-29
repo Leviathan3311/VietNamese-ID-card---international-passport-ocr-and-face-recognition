@@ -7,11 +7,10 @@ from mtcnn.mtcnn import MTCNN
 from utils import preprocess_input
 from vggface import VGGFace
 import sys
-import cv2
-
-
-
-
+import keras
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+keras.utils.disable_interactive_logging()
 
 
 # extract a single face from a given photograph
@@ -45,7 +44,7 @@ def get_embeddings(filenames):
 
 
 # determine if a candidate face is a match for a known face
-def is_match(known_embedding, candidate_embedding, thresh=0.5):
+def is_match(known_embedding, candidate_embedding, thresh=0.55):
     # calculate distance between embeddings
     score = cosine(known_embedding, candidate_embedding)
 
@@ -60,57 +59,8 @@ def is_match(known_embedding, candidate_embedding, thresh=0.5):
     print('********************************************************************')
 
 
-def capture_and_extract_face():
-    # Tạo một cửa sổ mới
-    cv2.namedWindow("Camera")
-    cap = cv2.VideoCapture(0)
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to capture image")
-            break
-
-        # Hiển thị camera
-        cv2.imshow('Camera', frame)
-
-        # Thêm nút bấm "Chụp ảnh" và "Tắt camera"
-        cv2.putText(frame, "Press 's' to capture", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(frame, "Press 'q' to quit", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.imshow('Camera', frame)
-
-        # Chờ phím 's' được nhấn để chụp ảnh
-        if cv2.waitKey(1) & 0xFF == ord('s'):
-            # Lưu ảnh được chụp
-            cv2.imwrite('captured_image.jpg', frame)
-            # Trích xuất khuôn mặt từ ảnh đã chụp
-            face_array = extract_face('captured_image.jpg')
-            break
-
-        # Chờ phím 'q' được nhấn để tắt camera
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    # Giải phóng tài nguyên
-    cap.release()
-    cv2.destroyAllWindows()
-
-    return face_array
-
-    # Giải phóng tài nguyên
-    cap.release()
-    cv2.destroyAllWindows()
-
-    return face_array
-
 def main():
-    # Chụp và trích xuất khuôn mặt từ ảnh đã chụp
-    face_array = capture_and_extract_face()
-
-    # Lấy embedding của khuôn mặt từ ảnh đã chụp
-    embeddings = get_embeddings(['captured_image.jpg', sys.argv[1]])
-
-    # So sánh embedding của khuôn mặt từ ảnh đã chụp với embedding của ảnh đầu vào từ dòng lệnh
+    embeddings = get_embeddings([sys.argv[1], sys.argv[2]])
     is_match(embeddings[0], embeddings[1])
 
 
