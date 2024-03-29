@@ -97,8 +97,8 @@ def get_text(img_path):
 
 def save_json(data, output_dir, filename):
     json_file_path = os.path.join(output_dir, filename + '.json')
-    with open(json_file_path, 'w') as json_file:
-        json.dump(data, json_file, indent=4)
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(data, json_file, indent=4, ensure_ascii=False)
 
 
 
@@ -144,4 +144,4 @@ def main(image_path, file_name):
 
 
 if __name__ == '__main__':
-    main('/Users/leviathanvo/Documents/cccd_passport_ocr_api/Thư mục mới với các mục', 'Bằng')
+    main(sys.argv[1], sys.argv[2])
